@@ -11,7 +11,7 @@ type tipo =
   | TyPair  of tipo * tipo 
   | TyList  of tipo 
   | TyMaybe of tipo
-  | TyId
+      
   
 (*op ∈ {+, −, ∗, div, <, ≤, >, ≥, =, and, or}*)
 type op = sum 
@@ -51,14 +51,13 @@ type expr =
   | Fst     of expr
   | Snd     of expr 
   | Nil     of tipo
-  | List    of expr  * expr
-  | Hd      of expr  
-  | Tl      of expr 
-  | MatchL  of expr  * expr * expr
+  | Cons    of expr  * expr
+  | Hd      of expr  * expr
+  | Tl      of expr  * expr
+  | MatchL  of tipo * expr  * expr * expr * expr * expr
   | Just    of expr
-  | Nothing
-  | MatchJ  of expr  * expr * expr
-  | raise
+  | Nothing of tipo
+  | MatchJ  of tipo * expr * expr * expr * expr 
   
                
   
@@ -74,26 +73,22 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
   match e with 
     Num n -> TyInt
   | Bool b -> TyBool
-  | OpBi (e1,e2, e3) ->
+  | OpBi (op,e2, e3) ->
       let t2 = typeinfer a e2 in 
       let t3 = typeinfer a e3 in
-      (match e1 with
-         sum ->
-           if t2 = TyInt && t3 = TyInt then
-             TyInt
-           else raise 
-       | sub ->
-           if t2 = TyInt && t3 = TyInt then
-             TyInt
-           else raise 
-       | mult ->
-           if t2 = TyInt && t3 = TyInt then
-             TyInt
-           else raise 
+      (match op with
+         sum
+       | sub
+       | mult
        | div ->
            if t2 = TyInt && t3 = TyInt then
              TyInt
            else raise 
+       | opAnd
+       | opOr -> 
+           if t2 = TyBool && t3 = TyBool then
+             TyBool
+           else raise
        | _ -> 
            if eqType(e2) && eqType(e3) then
              TyBool
@@ -135,13 +130,13 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
   | Fst (e1) ->
       let t1 = typeInfer a e1 in
       (match t1 with
-         TyPair (t1, t2) -> t1
+         TyPair (t1, _) -> t1
        | _ -> raise)
       
   | Snd (e1) ->
       let t1 = typeInfer a e1 in 
       (match t1 with
-         TyPair (t1, t2) -> t2
+         TyPair (t1, _) -> t2
        | _ -> raise)
       
   | Let (x, t, e1, e2) -> 
@@ -152,26 +147,60 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
         typeInfer up e2
       else raise
   
-  | LetRec (f, x, t, e1, e2) -> 
-      
-      
-    
+  | LetRec(f,(TyFn(t1,t2) as tf), Fn(x,tx,e1), e2) -> 
+      let taF = update a f tf in
+      let taFX = update taF x tx in
+      let tup = typeInfer taFX e1 in 
+      if tup = t2 then
+        typeInfer taF e2
+      else raise 
                  
   | Nil (t)-> TyList (t)
-  | List (e1, e2) ->
+  | Cons (e1, e2) ->
       let t1 = typeInfer a e1 in
       let t2 = typeInfer a e2 in 
       if t2 = TyList (t1) then 
         TyList (t1)
   
-  | Hd (e1) ->
+  | Hd (e1,e2) ->
       let t1 = typeInfer a e1 in 
-      if t1 = 
-  | Tl      of expr 
-  | MatchL  of expr  * expr * expr
-  | Just    of expr
-  | Nothing
-  | MatchJ  of expr  * expr * expr
-  | raise 
+      t1
+        
+  | Tl (e1,e2) ->
+      let t2 = typeInfer a e2 in
+      t2
+        
+  | MatchL(t, e1, e2, e3, xh, xt) ->
+      let t1 = typeInfer a e1 in
+      let t2 = typeInfer a e2 in
+      let t3 = typeInfer a e3 in
+      let txh = typeInfer a xh in
+      let txt = typeInfer a xt in
+      if t1 = TyList(t) &&  txh = t && txt = TyList(t) then 
+        (match e1 with 
+         | Nil (t) -> t2
+         | Cons (xh, xt) -> t3
+         | _ -> raise
+        )
+      else raise 
+            
+  | Just(e1)->
+      let t1 = typeInfer a e1 in
+      TyMaybe(t1)
+        
+  | Nothing (t) ->
+      TyMaybe(t)
+        
+  | MatchJ (t, e1, e2, e3, x) ->
+      let t1 = typeInfer a e1 in
+      let t2 = typeInfer a e2 in
+      let t3 = typeInfer a e3 in 
+      let tx = typeInfer a x in 
+      if t1 = TyMaybe(t) && tx = t then 
+        (match e1 with 
+         | Nothing (t)  -> t2
+         | Just (x) -> t3
+         | _ -> raise )
+      else raise
   
          (*fazer eqTYPE*)
