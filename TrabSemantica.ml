@@ -14,17 +14,17 @@ type tipo =
       
   
 (*op ∈ {+, −, ∗, div, <, ≤, >, ≥, =, and, or}*)
-type op = sum 
-        | sub
-        | mul 
-        | div
-        | ls
-        | lsE
-        | gt
-        | gtE
-        | eq
-        | opAnd
-        | opOr
+type op = Sum 
+        | Sub
+        | Mul 
+        | Div
+        | Ls
+        | LsE
+        | Gt
+        | GtE
+        | Eq
+        | OpAnd
+        | OpOr
   
 type ident = string 
   
@@ -46,14 +46,14 @@ type expr =
   | App     of expr  * expr
   | Fn      of ident * tipo  * expr
   | Let     of ident * tipo  * expr  * expr 
-  | LetRec  of expr  * ident * tipo  * expr * expr 
+  | LetRec  of ident * tipo  * expr * expr 
   | Pair    of expr  * expr
   | Fst     of expr
   | Snd     of expr 
   | Nil     of tipo
-  | Cons    of expr 
+  | Cons    of expr * expr
   | Hd      of expr 
-  | Tl      of expr  * expr
+  | Tl      of expr 
   | MatchL  of tipo * expr  * expr * expr * expr * expr
   | Just    of expr
   | Nothing of tipo
@@ -77,15 +77,15 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
       let t2 = typeinfer a e2 in 
       let t3 = typeinfer a e3 in
       (match op with
-         sum
-       | sub
-       | mult
-       | div ->
+         Sum
+       | Sub
+       | Mul
+       | Div ->
            if t2 = TyInt && t3 = TyInt then
              TyInt
            else raise TypeError
-       | opAnd
-       | opOr -> 
+       | OpAnd
+       | OpOr -> 
            if t2 = TyBool && t3 = TyBool then
              TyBool
            else raise TypeError
@@ -96,7 +96,7 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
       )
              
   | If (e1, e2, e3) ->
-      let t1 = typerinfer a e1 in
+      let t1 = typeinfer a e1 in
       (match t1 with
          TyBool ->
            let t2 = typeinfer a e2 in
@@ -104,24 +104,25 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
            if t2 = t3 then t2
            else raise TypeError
        | _ -> raise TypeError 
-      )
+      ) 
+        
+  | Var x -> 
+      (match lookup a x with
+         Some t -> t
+       | None -> raise TypeError)
       
-  | Var (e1) -> 
-      lookup a x
-      
-  | Pair (e1, e2) ->
-      let t1 = typeInfer a e1 in 
-      let t2 = typeInfer a e2 in 
-      if t1 = t2 then 
-        TyPair (t1, t2)
+  | Pair(e1,e2) -> 
+      let t1 = typeinfer a e1 in 
+      let t2 = typeinfer a e2 in
+      TyPair(t1,t2)
           
   | Fn (x, t, e2) -> 
       let up = update a x t in
-      TyFn(t, typeInfer up e2)
+      TyFn(t, typeinfer up e2)
       
   | App (e1, e2) ->  
-      let t1 = typeInfer a e1 in
-      let t2 = typeInfer a e2 in
+      let t1 = typeinfer a e1 in
+      let t2 = typeinfer a e2 in
       (match t1 with 
          TyFn (t_in, t_out) ->
            if t2 = t_in then 
@@ -131,61 +132,57 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
       )
       
   | Fst (e1) ->
-      let t1 = typeInfer a e1 in
+      let t1 = typeinfer a e1 in
       (match t1 with
          TyPair (t1, _) -> t1
        | _ -> raise TypeError)
       
   | Snd (e1) ->
-      let t1 = typeInfer a e1 in 
+      let t1 = typeinfer a e1 in 
       (match t1 with
-         TyPair (t1, _) -> t2
+         TyPair (_, t2) -> t2
        | _ -> raise TypeError
       )
       
   | Let (x, t, e1, e2) -> 
-      let tx = typeInfer a x in
-      let up = update a x tx in
-      let t1 = typeInfer a e1 in
-      if t = t1 then 
-        typeInfer up e2
+      if (typeinfer a e1) = t then typeinfer (update a x t) e2
       else raise TypeError
   
   | LetRec(f,(TyFn(t1,t2) as tf), Fn(x,tx,e1), e2) -> 
       let taF = update a f tf in
       let taFX = update taF x tx in
-      let tup = typeInfer taFX e1 in 
+      let tup = typeinfer taFX e1 in 
       if tup = t1 then
-        typeInfer taF e2
+        typeinfer taF e2
       else raise TypeError
                  
   | Nil (t)-> TyList (t)
   | Cons (e1, e2) ->
-      let t1 = typeInfer a e1 in
-      let t2 = typeInfer a e2 in 
+      let t1 = typeinfer a e1 in
+      let t2 = typeinfer a e2 in 
       if t2 = TyList (t1) then 
         TyList (t1)
   
   | Hd (e1) ->
-      let t1 = typeInfer a e1 in
+      let t1 = typeinfer a e1 in
       (match t1 with
          TyList (t1, _) -> t1
        | _ -> raise TypeError)
         
   | Tl (e1) ->
-      let t1 = typeInfer a e1 in
+      let t1 = typeinfer a e1 in
       (match t1 with
          TyList (_, t1) -> t1
        | _ -> raise TypeError)
         
   | MatchL(t, e1, e2, e3, xh, xt) ->
-      let t1 = typeInfer a e1 in
-      let t2 = typeInfer a e2 in 
-      let txh = typeInfer a xh in
-      let txt = typeInfer a xt in
+      let t1 = typeinfer a e1 in
+      let t2 = typeinfer a e2 in 
+      let txh = typeinfer a xh in
+      let txt = typeinfer a xt in
       let upxh = update a txh e3 in
       let upxs = update a upxh e3 in 
-      let t3 = typeInfer upxs e3 in
+      let t3 = typeinfer upxs e3 in
       
       if t1 = TyList(t) then 
         (match e1 with 
@@ -214,7 +211,7 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
          | Just (x) -> t3
          | _ -> raise TypeError )
       else raise TypeError
-)
+          
   
 let type_to_str (t :tipo): string  = 
   (match t with
