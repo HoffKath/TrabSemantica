@@ -14,17 +14,7 @@ type tipo =
       
   
 (*op ∈ {+, −, ∗, div, <, ≤, >, ≥, =, and, or}*)
-type op = Sum 
-        | Sub
-        | Mul 
-        | Div
-        | Ls
-        | LsE
-        | Gt
-        | GtE
-        | Eq
-        | OpAnd
-        | OpOr
+type op = Sum | Sub | Mul | Div | Ls | LsE | Gt | GtE | Eq | OpAnd | OpOr
   
 type ident = string 
   
@@ -58,15 +48,47 @@ type expr =
   | Just    of expr
   | Nothing of tipo
   | MatchJ  of expr * expr * expr * ident 
-  
+
+                 (*Matheus*)               
+
+type valor =
+    VN of int
+  | VB of bool
+  | VPair of valor * valor 
+  | VClos  of ident * expr * renv
+  | VRclos of ident * ident * expr * renv 
+  | Address of int
+  | VSkip
+and 
+  renv = (ident * valor) list 
+
+type omega = valor list
+    
+let newAddress memory =
+  List.length memory 
+    
+let appendValue memory value =
+  List.append memory [value]
+
+let replace l pos a =
+  List.mapi (fun i x -> if i = pos then a else x) l   
+
+type context = valor * omega 
+               
+                 (*Matheus*)
+
+exception BugTypeInfer  
+
 exception TypeError
   
-let rec lookup a k: tipo option = 
+exception NImpError of string
+  
+let rec lookup a k = 
   match a with
     [] -> None
   | (y,i) :: tl -> if (y = k) then Some i else lookup tl k 
           
-let update a k i : typeEnv =
+let update a k i =
   (k,i) :: a
   
 let rec typeinfer (a: typeEnv) (e: expr): tipo = 
@@ -227,3 +249,110 @@ let inter (a: typeEnv) (e: expr) =
     let t = typeinfer a e in 
     print_endline (type_to_str  t)
   with TypeError -> print_endline "Erro de Tipo" 
+  
+                      
+                      (* AVALIADOR *)
+
+let rec compute (oper: op) (v1: valor) (v2: valor) : valor =
+  match (oper, v1, v2) with 
+    (Sum,  VN n1, VN n2) -> VN (n1 + n2)
+  | (Sub,  VN n1, VN n2) -> VN (n1 - n2)
+  | (Mul, VN n1, VN n2) -> VN (n1 * n2) 
+  | (Div, VN n1, VN n2) -> VN( n1 / n2) 
+  | (Ls, VN n1, VN n2) -> VB( n1 < n2)
+  | (LsE,VN n1, VN n2) -> VB( n1 <= n2) 
+  | (Gt, VN n1, VN n2) -> VB( n1 > n2) 
+  | (GtE,VN n1, VN n2) -> VB( n1 >= n2)
+  | (Eq, VN n1, VN n2) -> VB( n1 = n2)
+  | (OpAnd, VB b1, VB b2) -> VB(b1 && b2)
+  | (OpOr, VB b1, VB b2) -> VB( b1 || b2)
+  | _ -> raise BugTypeInfer 
+           
+let rec eval (a:renv) (e:expr) (omega:omega) : context =
+  match e with
+    Num n -> (VN n, omega)
+               
+  | Bool b -> (VB b, omega)
+              
+  | OpBi(oper,e1,e2) ->
+      let (v1, omega') = eval a e1 omega in
+      let (v2, omega'') = eval a e2 omega'
+      in (compute oper v1 v2, omega'')
+
+  | If(e1,e2,e3) ->
+      (match eval a e1 omega with
+         (VB true, omega')  -> eval a e2 omega'
+       | (VB false, omega') -> eval a e3 omega'
+       | _ -> raise BugTypeInfer )
+
+  | Var x ->
+      (match lookup a x with
+         Some v -> (v, omega)
+       | None -> raise BugTypeInfer)
+
+  | App(e1,e2) ->
+      let (v1, omega')  = eval a e1 omega in
+      let (v2, omega'') = eval a e2 omega' in
+      (match v1 with
+         VClos(x,ebdy,a') ->
+           let a'' = update a' x v2
+           in eval a'' ebdy omega''
+
+       | VRclos(f,x,ebdy,a') ->
+           let a''  = update a' x v2 in
+           let a''' = update a'' f v1
+           in eval a''' ebdy omega''
+       | _ -> raise BugTypeInfer)
+        
+  | Fn (x,_,e1) ->  
+      (VClos(x,e1,a), omega)
+      
+  | Let (x,_,e1,e2) ->
+      let (v1, omega') = eval a e1 omega
+      in eval (update a x v1) e2 omega' 
+        
+  | LetRec  (f,TyFn(t1,t2),Fn(x,tx,e1), e2) when t1 = tx ->
+      let a' = update a f (VRclos(f,x,e1,a))
+      in eval a' e2 omega
+        
+  | Pair (e1,e2) ->
+      let (v1, omega') = eval a e1 omega in
+      let (v2, omega'') = eval a e2 omega'
+      in (VPair(v1,v2), omega'')
+         
+  | Fst e ->
+      (match eval a e omega with
+       | (VPair(v1,_), omega') -> (v1, omega')
+       | _ -> raise BugTypeInfer)
+      
+  | Snd e ->
+      (match eval a e omega with
+       | (VPair(_,v2), omega') -> (v2, omega')
+       | _ -> raise BugTypeInfer)
+                
+  | Nil x ->
+      raise (NImpError "Ainda não implementado")
+        
+  | Cons (x, y) ->
+      raise (NImpError "Ainda não implementado")
+        
+  | Hd x ->
+      raise (NImpError "Ainda não implementado") 
+        
+  | Tl x ->
+      raise (NImpError "Ainda não implementado")
+        
+  | MatchL (x, y, z, w, u) ->
+      raise (NImpError "Ainda não implementado")
+        
+  | Just x ->
+      raise (NImpError "Ainda não implementado")
+        
+  | Nothing x ->
+      raise (NImpError "Ainda não implementado")
+        
+  | MatchJ (w,x, y, z)  ->
+      raise (NImpError "Ainda não implementado")
+  
+
+
