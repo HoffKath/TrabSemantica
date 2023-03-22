@@ -57,8 +57,7 @@ type valor =
   | VPair of valor * valor 
   | VClos  of ident * expr * renv
   | VRclos of ident * ident * expr * renv 
-  | Address of int
-  | VSkip
+
 and 
   renv = (ident * valor) list 
 
@@ -355,4 +354,37 @@ let rec eval (a:renv) (e:expr) (omega:omega) : context =
       raise (NImpError "Ainda não implementado")
   
 
+(* função que converte tipo para string *)
 
+let rec typeToString (t:tipo) : string =
+  match t with
+    TyInt  -> "int"
+  | TyBool -> "bool"
+  | TyFn(t1,t2)   ->  "("  ^ (typeToString t1) ^ " --> " ^ (typeToString t2) ^ ")"
+  | TyPair(t1,t2) ->  "("  ^ (typeToString t1) ^ " * "   ^ (typeToString t2) ^ ")"
+  | TyList t1 -> "FazerTylist"
+  | TyMaybe t1 -> "FazerTyMaybe"
+
+
+(* função que converte valor para string *)
+let rec valueToString (v: valor) : string =
+  match v with
+    VN n -> string_of_int n
+  | VB b -> string_of_bool b 
+  | VPair(v1, v2) -> "(" ^ valueToString v1 ^ "," ^ valueToString v1 ^ ")"
+  | VClos _ ->  "fn"
+  | VRclos _ -> "fn"
+
+
+(* interpretador *)
+
+let interpretador (e:expr) : unit =
+  try
+    let t = typeinfer [] e in
+    let (v, omega) = eval [] e []
+    in  print_string ((valueToString v) ^ " : " ^ (typeToString t)
+                      ^ ", mem: {"
+                      ^ (String.concat ", " (List.map (fun x -> valueToString x) omega))
+                      ^ "}")
+  with
+    NImpError msg ->  print_string ("erro de tipo - " ^ msg)
