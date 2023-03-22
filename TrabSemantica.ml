@@ -172,9 +172,10 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
   | LetRec(f,(TyFn(t1,t2) as tf), Fn(x,tx,e1), e2) -> 
       let taF = update a f tf in
       let taFX = update taF x tx in
-      let tup = typeinfer taFX e1 in 
-      if tup = t1 then
-        typeinfer taF e2
+      let te1 = typeinfer taFX e1 in 
+      let te2 = typeinfer taF e2 in
+      if t1 = t3 && t2 = te1 then 
+        te2
       else raise TypeError
                  
   | Nil (t)-> TyList(t)
