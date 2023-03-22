@@ -1,6 +1,3 @@
-(* This is an OCaml editor.
-   Enter your program here and send it to the toplevel using the "Eval code"
-   button or [Ctrl-e]. *)
 (*Kathleen Hoff, Maria Toneto e Matheus Stein*)
 
 (*T ::= int | bool | T1 → T2 | T list | T1 ∗ T2 | maybe T*)
@@ -60,23 +57,10 @@ type valor =
 
 and 
   renv = (ident * valor) list 
-
-type omega = valor list
-    
-let newAddress memory =
-  List.length memory 
-    
-let appendValue memory value =
-  List.append memory [value]
-
-let replace l pos a =
-  List.mapi (fun i x -> if i = pos then a else x) l   
-
-type context = valor * omega 
+  
+type context = valor 
                
                  (*Matheus*)
-
-exception BugTypeInfer  
 
 exception TypeError
   
@@ -165,7 +149,7 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
        | _ -> raise TypeError
       )
       
-  | Let (x, t, e1, e2) -> 
+  | Let (x, t, e1, e2) ->
       if (typeinfer a e1) = t then typeinfer (update a x t) e2
       else raise TypeError
   
@@ -177,6 +161,8 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
       if t1 = tx && t2 = te1 then 
         te2
       else raise TypeError
+          
+  | LetRec _ -> raise (NImpError "bug parser")
                  
   | Nil (t)-> TyList(t)
   | Cons (e1, e2) ->
@@ -244,7 +230,7 @@ let type_to_str (t :tipo): string  =
    | TyMaybe(t1)   -> "Maybe T"
   )
   
-let inter (a: typeEnv) (e: expr) = 
+let interpretador (a: typeEnv) (e: expr) = 
   try 
     let t = typeinfer a e in 
     print_endline (type_to_str  t)
@@ -266,69 +252,71 @@ let rec compute (oper: op) (v1: valor) (v2: valor) : valor =
   | (Eq, VN n1, VN n2) -> VB( n1 = n2)
   | (OpAnd, VB b1, VB b2) -> VB(b1 && b2)
   | (OpOr, VB b1, VB b2) -> VB( b1 || b2)
-  | _ -> raise BugTypeInfer 
+  | _ -> raise TypeError 
            
-let rec eval (a:renv) (e:expr) (omega:omega) : context =
+let rec eval (a:renv) (e:expr) : context =
   match e with
-    Num n -> (VN n, omega)
+    Num n -> (VN n)
                
-  | Bool b -> (VB b, omega)
+  | Bool b -> (VB b)
               
   | OpBi(oper,e1,e2) ->
-      let (v1, omega') = eval a e1 omega in
-      let (v2, omega'') = eval a e2 omega'
-      in (compute oper v1 v2, omega'')
+      let (v1) = eval a e1 in
+      let (v2) = eval a e2
+      in (compute oper v1 v2)
 
   | If(e1,e2,e3) ->
-      (match eval a e1 omega with
-         (VB true, omega')  -> eval a e2 omega'
-       | (VB false, omega') -> eval a e3 omega'
-       | _ -> raise BugTypeInfer )
+      (match eval a e1 with
+         (VB true)  -> eval a e2
+       | (VB false) -> eval a e3
+       | _ -> raise TypeError )
 
   | Var x ->
       (match lookup a x with
-         Some v -> (v, omega)
-       | None -> raise BugTypeInfer)
+         Some v -> (v)
+       | None -> raise TypeError)
 
   | App(e1,e2) ->
-      let (v1, omega')  = eval a e1 omega in
-      let (v2, omega'') = eval a e2 omega' in
+      let (v1)  = eval a e1 in
+      let (v2) = eval a e2 in
       (match v1 with
          VClos(x,ebdy,a') ->
            let a'' = update a' x v2
-           in eval a'' ebdy omega''
+           in eval a'' ebdy 
 
        | VRclos(f,x,ebdy,a') ->
            let a''  = update a' x v2 in
            let a''' = update a'' f v1
-           in eval a''' ebdy omega''
-       | _ -> raise BugTypeInfer)
+           in eval a''' ebdy 
+       | _ -> raise TypeError)
         
   | Fn (x,_,e1) ->  
-      (VClos(x,e1,a), omega)
+      (VClos(x,e1,a))
       
   | Let (x,_,e1,e2) ->
-      let (v1, omega') = eval a e1 omega
-      in eval (update a x v1) e2 omega' 
+      let (v1) = eval a e1 
+      in eval (update a x v1) e2 
         
   | LetRec  (f,TyFn(t1,t2),Fn(x,tx,e1), e2) when t1 = tx ->
       let a' = update a f (VRclos(f,x,e1,a))
-      in eval a' e2 omega
+      in eval a' e2
+        
+  | LetRec _ -> raise (NImpError "bug parser")
         
   | Pair (e1,e2) ->
-      let (v1, omega') = eval a e1 omega in
-      let (v2, omega'') = eval a e2 omega'
-      in (VPair(v1,v2), omega'')
+      let (v1) = eval a e1 in
+      let (v2) = eval a e2
+      in (VPair(v1,v2))
          
   | Fst e ->
-      (match eval a e omega with
-       | (VPair(v1,_), omega') -> (v1, omega')
-       | _ -> raise BugTypeInfer)
+      (match eval a e with
+       | (VPair(v1,_)) -> (v1)
+       | _ -> raise TypeError)
       
   | Snd e ->
-      (match eval a e omega with
-       | (VPair(_,v2), omega') -> (v2, omega')
-       | _ -> raise BugTypeInfer)
+      (match eval a e with
+       | (VPair(_,v2)) -> (v2)
+       | _ -> raise TypeError)
                 
   | Nil x ->
       raise (NImpError "Ainda não implementado")
@@ -378,14 +366,4 @@ let rec valueToString (v: valor) : string =
 
 
 (* interpretador *)
-
-let interpretador (e:expr) : unit =
-  try
-    let t = typeinfer [] e in
-    let (v, omega) = eval [] e []
-    in  print_string ((valueToString v) ^ " : " ^ (typeToString t)
-                      ^ ", mem: {"
-                      ^ (String.concat ", " (List.map (fun x -> valueToString x) omega))
-                      ^ "}")
-  with
-    NImpError msg ->  print_string ("erro de tipo - " ^ msg)
+(*fazer intepretador*)
