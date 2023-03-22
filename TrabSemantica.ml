@@ -174,7 +174,7 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
       let taFX = update taF x tx in
       let te1 = typeinfer taFX e1 in 
       let te2 = typeinfer taF e2 in
-      if t1 = t3 && t2 = te1 then 
+      if t1 = tx && t2 = te1 then 
         te2
       else raise TypeError
                  
