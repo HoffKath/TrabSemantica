@@ -166,6 +166,7 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
   | LetRec _ -> raise (NImpError "bug parser")
                  
   | Nil (t)-> TyList(t)
+                
   | Cons (e1, e2) ->
       let t1 = typeinfer a e1 in
       let t2 = typeinfer a e2 in 
@@ -178,8 +179,6 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
       (match t1 with 
          TyList(t) -> t 
        | _ -> raise TypeError)
-       
-      
   
   | Tl(e1) ->
       let t1 = typeinfer  a e1 in 
@@ -338,7 +337,7 @@ let rec eval (a:renv) (e:expr) : context =
        | VList (_ :: t) -> VList t
        | _ -> raise (NImpError "bug parser"))
         
-  | MatchL (e1, e2, e3, w, u) ->
+  | MatchL (e1, e2, e3, x, xs) ->
       (match eval a e1 with
        | VList [] -> eval a e2
        | VList (x :: xs) -> eval a e3 
@@ -348,7 +347,7 @@ let rec eval (a:renv) (e:expr) : context =
         
   | Nothing e -> VOption None
         
-  | MatchJ (e1, e2, e3, z)  ->
+  | MatchJ (e1, e2, e3, x)  ->
       (match eval a e1 with
        | VOption None -> eval a e2
        | VOption Some x -> eval a e3
@@ -382,4 +381,25 @@ let rec valueToString (v: valor) : string =
 
 
 (* interpretador *)
-(*fazer intepretador*)
+
+
+(* testes *)
+
+(*(fn x:int => (fn y:int => x+y)) 3 4 *) 
+let tst2 = App(Fn("x", TyInt, App(Fn("y", TyInt, OpBi(Sum, Var "x", Var "y")), Num 4)), Num 3)
+    
+                                               
+(*(fn x:bool => (fn y:int => x+y)) 3 4 *) 
+let tst3 = App(Fn("x", TyBool, App(Fn("y", TyInt, OpBi(Sum, Var "x", Var "y")), Num 4)), Num 3)
+  
+    
+(* (fn x:int => (fn y:int => x+y)) 3     (* tipo int --> int *) *) 
+let tst4 = App(Fn("x", TyInt, Fn("y", TyInt, OpBi(Sum, Var "x", Var "y"))), Num 3)
+
+
+(* fn x:int => (fn y:int => x+y)   tipo int --> int --> int --> int  *) 
+let tst5 = Fn("x", TyInt, Fn("y", TyInt, OpBi(Sum, Var "x", Var "y"))) 
+
+(*let x : int = 1  in
+let y : int = 9 + x  in 
+(let x : int = 2 in x ∗ y) + x      (*  tipo int   *)  *)
