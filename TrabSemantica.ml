@@ -46,14 +46,15 @@ type expr =
   | Nothing of tipo
   | MatchJ  of expr * expr * expr * ident 
 
-                 (*Matheus*)               
-
+                 (*Matheus*) 
 type valor =
     VN of int
   | VB of bool
   | VPair of valor * valor 
   | VClos  of ident * expr * renv
   | VRclos of ident * ident * expr * renv 
+  | VList of valor list
+  | VOption of valor option
 
 and 
   renv = (ident * valor) list 
@@ -297,7 +298,7 @@ let rec eval (a:renv) (e:expr) : context =
       let (v1) = eval a e1 
       in eval (update a x v1) e2 
         
-  | LetRec  (f,TyFn(t1,t2),Fn(x,tx,e1), e2) when t1 = tx ->
+  | LetRec (f,TyFn(t1,t2),Fn(x,tx,e1), e2) when t1 = tx ->
       let a' = update a f (VRclos(f,x,e1,a))
       in eval a' e2
         
@@ -318,29 +319,40 @@ let rec eval (a:renv) (e:expr) : context =
        | (VPair(_,v2)) -> (v2)
        | _ -> raise TypeError)
                 
-  | Nil x ->
-      raise (NImpError "Ainda não implementado")
+  | Nil e -> VList []
         
-  | Cons (x, y) ->
-      raise (NImpError "Ainda não implementado")
+  | Cons (e1, e2) ->
+      let (v1) = eval a e1 in
+      let (v2) = eval a e2 in
+      VList (v1 :: v2 :: [])
         
-  | Hd x ->
-      raise (NImpError "Ainda não implementado") 
+  | Hd e ->
+      (match eval a e with
+       | VList [] -> VList []
+       | VList (h :: _) -> h
+       | _ -> raise (NImpError "bug parser"))
         
-  | Tl x ->
-      raise (NImpError "Ainda não implementado")
+  | Tl e ->
+      (match eval a e with
+       | VList [] -> VList []
+       | VList (_ :: t) -> VList t
+       | _ -> raise (NImpError "bug parser"))
         
-  | MatchL (x, y, z, w, u) ->
-      raise (NImpError "Ainda não implementado")
+  | MatchL (e1, e2, e3, w, u) ->
+      (match eval a e1 with
+       | VList [] -> eval a e2
+       | VList (x :: xs) -> eval a e3 
+       | _ -> raise (NImpError "bug parser"))
         
-  | Just x ->
-      raise (NImpError "Ainda não implementado")
+  | Just e -> eval a e
         
-  | Nothing x ->
-      raise (NImpError "Ainda não implementado")
+  | Nothing e -> VOption None
         
-  | MatchJ (w,x, y, z)  ->
-      raise (NImpError "Ainda não implementado")
+  | MatchJ (e1, e2, e3, z)  ->
+      (match eval a e1 with
+       | VOption None -> eval a e2
+       | VOption Some x -> eval a e3
+       | _ -> raise (NImpError "bug parser"))
   
 
 (* função que converte tipo para string *)
@@ -363,6 +375,10 @@ let rec valueToString (v: valor) : string =
   | VPair(v1, v2) -> "(" ^ valueToString v1 ^ "," ^ valueToString v1 ^ ")"
   | VClos _ ->  "fn"
   | VRclos _ -> "fn"
+  | VList [] -> "[]" 
+  | VList (x :: xs) -> "[" ^ valueToString x ^ "]" 
+  | VOption None -> "none"
+  | VOption Some x -> valueToString x
 
 
 (* interpretador *)
