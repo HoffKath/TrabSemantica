@@ -400,6 +400,55 @@ let tst4 = App(Fn("x", TyInt, Fn("y", TyInt, OpBi(Sum, Var "x", Var "y"))), Num 
 (* fn x:int => (fn y:int => x+y)   tipo int --> int --> int --> int  *) 
 let tst5 = Fn("x", TyInt, Fn("y", TyInt, OpBi(Sum, Var "x", Var "y"))) 
 
-(*let x : int = 1  in
-let y : int = 9 + x  in 
-(let x : int = 2 in x ∗ y) + x      (*  tipo int   *)  *)
+  
+  (*let x:int = 2 in
+let foo: int --> int = fn y:int => x + y in
+let x: int = 5
+in   foo 10
+
+valor 12 do tipo int
+*)
+
+let x = Let ("x", TyInt, Num 5, App(Var "foo", Num 10))
+let foo = Let ("foo", TyFn(TyInt,TyInt), Fn("y", TyInt, OpBi(Sum, Var "x", Var "y")), x)
+let tst6 = Let ("x", TyInt, Num 2, foo)
+
+    
+    (*let x:int = 2 in
+let foo: int --> int = fn y:int => x + y in
+let x: int = 5
+in   foo *)
+let x = Let ("x", TyInt, Num 5, Var "foo")
+let foo = Let ("foo", TyFn(TyInt,TyInt), Fn("y", TyInt, OpBi(Sum, Var "x", Var "y")), x)
+let tst7 = Let ("x", TyInt, Num 2, foo) 
+    
+(*
+let rec lookup: (int x int) list -> int -> maybe int =
+          fn l: (int x int) list => fn key: int =>
+              match l with
+                nil => nothing
+              | x :: xs => if (fst x) = key
+                           then Just (snd x)
+                           else (lookup xs key)
+in lookup [(1,10),(2,20), (3,30)]  2
+
+valor - Just 20
+tipo - maybe int
+*)
+
+
+(*
+   
+let rec map: (int -> int) -> int list -> int list =
+       fn f: int->int => fn l: int list =>
+            match l with
+             nil -> nil: int list
+           | x :: xs -> (f x) :: (map f xs)
+in
+      map (fn x:int => x + x) [10,20,30]
+
+
+valor [20,40,60]
+tipo int list
+ LetRec (f,TyFn(t1,t2),Fn(x,tx,e1), e2)
+*)
