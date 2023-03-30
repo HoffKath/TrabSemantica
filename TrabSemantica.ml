@@ -361,31 +361,25 @@ let rec eval (a:renv) (e:expr) : context =
        | VOption Some x -> eval a e3
        | _ -> raise (NImpError "bug parser"))
   
-        (* INTERPRETADOR *)      
-
-let value_to_str (v :valor): string  = 
-  (match t with
-     VN -> "int"
-   | VB -> "bool"
+        (* INTERPRETADOR *) 
+  
+let rec value_to_str (v :valor): string  = 
+  (match v with
+     VN v1 -> string_of_int v1
+   | VB v1 -> string_of_bool v1
    | VPair (v1, v2) -> " Par: " ^ (value_to_str v1) ^ " e " ^ (value_to_str v2)
-   | VClos  (v1, v2, v3) -> " Closure composto por: Valor " (v1) ^ " Expressão " ^ 
-                            (expr_to_str v2) ^ " e Ambiente " ^ (expr_to_str v3)
-   | VRclos (v1, v2, v3, v4) -> " Closure recursivo composto por: Função recursiva " 
-                                  (v1) ^ " Argumento " (v2) ^ " Expressão " ^
-                                (expr_to_str v3) ^ " e Ambiente " ^ (expr_to_str v4)
-   | VList (v1) -> " Lista de " (value_to_str v1)
-   | VOption (v1) -> " Opção de " (value_to_str v1)
+   | VClos  (v1, e2, v3) -> " fn "
+   | VRclos (v1, v2, v3, v4) -> " fn "
+   | VList (v1) -> " Lista de valor list"
+   | VOption (v1) -> " Opção de valor option"
   ) 
   
-    valor =
-  
-
-  let interpretador (a: typeEnv) (b:renv) (e:expr) = 
-    try 
-      let t = typeinfer a e in 
-      let v = eval b e in
-      print_endline ((value_to_str e)  ^ " : "  ^ (type_to_str  t))
-    with TypeError -> print_endline "Erro de Tipo" ;;
+let interpretador (a: typeEnv) (b:renv) (e:expr) = 
+  try 
+    let t = typeinfer a e in 
+    let v = eval b e in
+    print_endline ((value_to_str v)  ^ " : "  ^ (type_to_str  t))
+  with TypeError -> print_endline "Erro de Tipo" ;;
                         
 
 
