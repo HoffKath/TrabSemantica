@@ -230,13 +230,21 @@ let type_to_str (t :tipo): string  =
    | TyMaybe(t1)   -> "Maybe T"
   )
   
-let interpretador (a: typeEnv) (e: expr) = 
-  try 
-    let t = typeinfer a e in 
-    print_endline (type_to_str  t)
-  with TypeError -> print_endline "Erro de Tipo" 
-  
-                      
+let op_to_str (op: op): string = 
+  (match op with
+     Sum -> "+" 
+   | Sub -> "-"
+   | Mul -> "*" 
+   | Div -> "/"
+   | Ls -> "<"
+   | LsE -> "<="
+   | Gt -> ">"
+   | GtE -> ">="
+   | Eq -> "=="
+   | OpAnd -> "&&"
+   | OpOr -> "||"
+  )
+
                       (* AVALIADOR *)
 
 let rec compute (oper: op) (v1: valor) (v2: valor) : valor =
@@ -353,34 +361,32 @@ let rec eval (a:renv) (e:expr) : context =
        | VOption Some x -> eval a e3
        | _ -> raise (NImpError "bug parser"))
   
+        (* INTERPRETADOR *)      
 
-(* função que converte tipo para string *)
+let value_to_str (v :valor): string  = 
+  (match t with
+     VN -> "int"
+   | VB -> "bool"
+   | VPair (v1, v2) -> " Par: " ^ (value_to_str v1) ^ " e " ^ (value_to_str v2)
+   | VClos  (v1, v2, v3) -> " Closure composto por: Valor " (v1) ^ " Expressão " ^ 
+                            (expr_to_str v2) ^ " e Ambiente " ^ (expr_to_str v3)
+   | VRclos (v1, v2, v3, v4) -> " Closure recursivo composto por: Função recursiva " 
+                                  (v1) ^ " Argumento " (v2) ^ " Expressão " ^
+                                (expr_to_str v3) ^ " e Ambiente " ^ (expr_to_str v4)
+   | VList (v1) -> " Lista de " (value_to_str v1)
+   | VOption (v1) -> " Opção de " (value_to_str v1)
+  ) 
+  
+    valor =
+  
 
-let rec typeToString (t:tipo) : string =
-  match t with
-    TyInt  -> "int"
-  | TyBool -> "bool"
-  | TyFn(t1,t2)   ->  "("  ^ (typeToString t1) ^ " --> " ^ (typeToString t2) ^ ")"
-  | TyPair(t1,t2) ->  "("  ^ (typeToString t1) ^ " * "   ^ (typeToString t2) ^ ")"
-  | TyList t1 -> "FazerTylist"
-  | TyMaybe t1 -> "FazerTyMaybe"
-
-
-(* função que converte valor para string *)
-let rec valueToString (v: valor) : string =
-  match v with
-    VN n -> string_of_int n
-  | VB b -> string_of_bool b 
-  | VPair(v1, v2) -> "(" ^ valueToString v1 ^ "," ^ valueToString v1 ^ ")"
-  | VClos _ ->  "fn"
-  | VRclos _ -> "fn"
-  | VList [] -> "[]" 
-  | VList (x :: xs) -> "[" ^ valueToString x ^ "]" 
-  | VOption None -> "none"
-  | VOption Some x -> valueToString x
-
-
-(* interpretador *)
+  let interpretador (a: typeEnv) (b:renv) (e:expr) = 
+    try 
+      let t = typeinfer a e in 
+      let v = eval b e in
+      print_endline ((value_to_str e)  ^ " : "  ^ (type_to_str  t))
+    with TypeError -> print_endline "Erro de Tipo" ;;
+                        
 
 
 (* testes *)
