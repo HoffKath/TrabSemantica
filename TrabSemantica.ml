@@ -46,7 +46,6 @@ type expr =
   | Nothing of tipo
   | MatchJ  of expr * expr * expr * ident 
 
-                 (*Matheus*) 
 type valor =
     VN of int
   | VB of bool
@@ -60,8 +59,7 @@ and
   renv = (ident * valor) list 
   
 type context = valor 
-               
-                 (*Matheus*)
+  
 
 exception TypeError
   
@@ -218,32 +216,7 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
            else raise TypeError)
        | _ -> raise TypeError 
       ) 
-          
       
-let type_to_str (t :tipo): string  = 
-  (match t with
-     TyInt -> "int"
-   | TyBool -> "bool"
-   | TyFn(t1,t2) -> "T1 -> T2"
-   | TyPair(t1,t2) -> "T1*T2" 
-   | TyList(t1)    -> "T list"
-   | TyMaybe(t1)   -> "Maybe T"
-  )
-  
-let op_to_str (op: op): string = 
-  (match op with
-     Sum -> "+" 
-   | Sub -> "-"
-   | Mul -> "*" 
-   | Div -> "/"
-   | Ls -> "<"
-   | LsE -> "<="
-   | Gt -> ">"
-   | GtE -> ">="
-   | Eq -> "=="
-   | OpAnd -> "&&"
-   | OpOr -> "||"
-  )
 
                       (* AVALIADOR *)
 
@@ -362,11 +335,21 @@ let rec eval (a:renv) (e:expr) : context =
        | _ -> raise (NImpError "bug parser"))
   
         (* INTERPRETADOR *) 
+
+let rec type_to_str (t :tipo): string  = 
+  (match t with
+     TyInt -> "int"
+   | TyBool -> "bool"
+   | TyFn(t1,t2) -> (type_to_str t1) ^ "->" ^ (type_to_str t2)
+   | TyPair(t1,t2) -> (type_to_str t1) ^ "*" ^ (type_to_str t2) 
+   | TyList(t1)    -> (type_to_str t1) ^ "list"
+   | TyMaybe(t1)   -> "Maybe" ^ (type_to_str t1)
+  )
   
 let rec value_to_str (v :valor): string  = 
   (match v with
-     VN v1 -> string_of_int v1
-   | VB v1 -> string_of_bool v1
+     VN v1 -> "Valor: " ^ string_of_int v1
+   | VB v1 -> "Bool: " ^ string_of_bool v1
    | VPair (v1, v2) -> " Par: " ^ (value_to_str v1) ^ " e " ^ (value_to_str v2)
    | VClos  (v1, e2, v3) -> " fn "
    | VRclos (v1, v2, v3, v4) -> " fn "
@@ -378,7 +361,7 @@ let interpretador (a: typeEnv) (b:renv) (e:expr) =
   try 
     let t = typeinfer a e in 
     let v = eval b e in
-    print_endline ((value_to_str v)  ^ " : "  ^ (type_to_str  t))
+    print_endline ((value_to_str v)  ^ " - "  ^ (type_to_str  t))
   with TypeError -> print_endline "Erro de Tipo" ;;
                         
 
@@ -405,7 +388,6 @@ let tst5 = Fn("x", TyInt, Fn("y", TyInt, OpBi(Sum, Var "x", Var "y")))
 let foo: int --> int = fn y:int => x + y in
 let x: int = 5
 in   foo 10
-
 valor 12 do tipo int
 *)
 
@@ -421,7 +403,7 @@ in   foo *)
 let x = Let ("x", TyInt, Num 5, Var "foo")
 let foo = Let ("foo", TyFn(TyInt,TyInt), Fn("y", TyInt, OpBi(Sum, Var "x", Var "y")), x)
 let tst7 = Let ("x", TyInt, Num 2, foo) 
-    
+                                        
 (*
 let rec lookup: (int x int) list -> int -> maybe int =
           fn l: (int x int) list => fn key: int =>
@@ -431,7 +413,6 @@ let rec lookup: (int x int) list -> int -> maybe int =
                            then Just (snd x)
                            else (lookup xs key)
 in lookup [(1,10),(2,20), (3,30)]  2
-
 valor - Just 20
 tipo - maybe int
 *)
@@ -446,8 +427,6 @@ let rec map: (int -> int) -> int list -> int list =
            | x :: xs -> (f x) :: (map f xs)
 in
       map (fn x:int => x + x) [10,20,30]
-
-
 valor [20,40,60]
 tipo int list
  LetRec (f,TyFn(t1,t2),Fn(x,tx,e1), e2)
