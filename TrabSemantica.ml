@@ -374,7 +374,7 @@ let rec expr_to_str (e:expr) : string = match e with
   | Fn(e1, e2, e3) -> " Função de nome: " ^ (e1) ^ " função: " ^
                       (expr_to_str e3) 
   | Let (e1, e2, e3, e4) -> "(let " ^ e1 ^ "=" ^ (expr_to_str e3) ^ "\nin " ^ (expr_to_str e4) ^ " )"
-  | LetRec (e1, e2, i, e3, e4) ->  "(let rec" ^ e1 ^ "= fn => " ^ (expr_to_str e3) ^ "\nin " ^ (expr_to_str e4) ^ " )"
+  | LetRec (e1, e2, i, e3, e4) ->  "(let rec" ^ e1 ^ "= fn " ^ i ^ " => " ^ (expr_to_str e3) ^ "\nin " ^ (expr_to_str e4) ^ " )"
   | Pair (e1, e2) -> "(" ^ (expr_to_str e1) ^ "," ^ (expr_to_str e2) ^ ")" 
   | Fst e1 -> "fst " ^ (expr_to_str e1)
   | Snd e1 -> "snd " ^ (expr_to_str e1)
@@ -457,57 +457,3 @@ in   foo *)
 let x = Let ("x", TyInt, Num 5, Var "foo")
 let foo = Let ("foo", TyFn(TyInt,TyInt), Fn("y", TyInt, OpBi(Sum, Var "x", Var "y")), x)
 let tst7 = Let ("x", TyInt, Num 2, foo) 
-                                        
-(*
-let rec lookup: (int x int) list -> int -> maybe int =
-          fn l: (int x int) list => fn key: int =>
-              match l with
-                nil => nothing
-              | x :: xs => if (fst x) = key
-                           then Just (snd x)
-                           else (lookup xs key)
-in lookup [(1,10),(2,20), (3,30)]  2
-valor - Just 20
-tipo - maybe int
-*)
-let tst8 =
-  LetRec
-    ( "lookup",
-      TyFn(TyList(TyPair(TyInt, TyInt)), TyFn(TyInt,TyMaybe(TyInt))),
-      "l",
-      Fn
-        ( "key",
-          TyInt,
-          MatchL
-            (Var "l",
-             Nothing(TyInt),
-             "x",
-             "xs",
-             If
-               ( OpBi (Eq, Fst (Var "x"), Var "key"),
-                 Just (Snd (Var "x")),
-                 App (App (Var "lookup", Var "xs"), Var "key") ) ) ),
-      App
-        ( App
-            ( Var "lookup",
-              Cons
-                ( Pair (Num 1, Num 10),
-                  Cons
-                    ( Pair (Num 2, Num 20),
-                      Cons (Pair(Num 3, Num 30), Nil(TyPair(TyInt, TyInt)))
-                    ) ) ),
-          Num 2 ) )
-
-(*
-   
-let rec map: (int -> int) -> int list -> int list =
-       fn f: int->int => fn l: int list =>
-            match l with
-             nil -> nil: int list
-           | x :: xs -> (f x) :: (map f xs)
-in
-      map (fn x:int => x + x) [10,20,30]
-valor [20,40,60]
-tipo int list
- LetRec (f,TyFn(t1,t2),Fn(x,tx,e1), e2)
-*)
