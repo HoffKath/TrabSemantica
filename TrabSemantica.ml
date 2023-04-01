@@ -346,15 +346,69 @@ let rec type_to_str (t :tipo): string  =
    | TyMaybe(t1)   -> "Maybe" ^ (type_to_str t1)
   )
   
-let rec value_to_str (v :valor): string  = 
-  (match v with
-     VN v1 -> "Valor: " ^ string_of_int v1
-   | VB v1 -> "Bool: " ^ string_of_bool v1
-   | VPair (v1, v2) -> " Par: " ^ (value_to_str v1) ^ " e " ^ (value_to_str v2)
-   | VClos  (v1, e2, v3) -> " fn "
-   | VRclos (v1, v2, v3, v4) -> " fn "
-   | VList (v1) -> " Lista de valor list"
-   | VOption (v1) -> " Opção de valor option"
+let op_to_str (op: op): string = 
+  (match op with
+     Sum -> "+" 
+   | Sub -> "-"
+   | Mul -> "*" 
+   | Div -> "/"
+   | Ls -> "<"
+   | LsE -> "<="
+   | Gt -> ">"
+   | GtE -> ">="
+   | Eq -> "=="
+   | OpAnd -> "&&"
+   | OpOr -> "||"
+  )
+
+let rec expr_to_str (e:expr) : string = match e with
+    Num e1 -> string_of_int e1;
+  | Bool e1 -> string_of_bool e1;
+  | OpBi(e1, e2, e3) -> (expr_to_str e2) ^ " " ^ (op_to_str e1) ^ " " ^ 
+                        (expr_to_str e3)
+  | If(e1,e2,e3) -> 
+      " if " ^ (expr_to_str e1) ^ " then " ^ (expr_to_str e2) ^ 
+      " else " ^ (expr_to_str e3)
+  | Var e1 -> e1
+  | App(e1, e2) -> "(" ^ (expr_to_str e1) ^ " " ^ (expr_to_str e2) ^ ")"
+  | Fn(e1, e2, e3) -> " Função de nome: " ^ (e1) ^ " função: " ^
+                      (expr_to_str e3) 
+  | Let (e1, e2, e3, e4) -> "(let " ^ e1 ^ "=" ^ (expr_to_str e3) ^ "\nin " ^ (expr_to_str e4) ^ " )"
+  | LetRec (e1, e2, e3, e4) ->  "(let rec" ^ e1 ^ "= fn => " ^ (expr_to_str e3) ^ "\nin " ^ (expr_to_str e4) ^ " )"
+  | Pair (e1, e2) -> "(" ^ (expr_to_str e1) ^ "," ^ (expr_to_str e2) ^ ")" 
+  | Fst e1 -> "fst " ^ (expr_to_str e1)
+  | Snd e1 -> "snd " ^ (expr_to_str e1)
+  | Nil e1 -> "[]"
+  | Cons (e1, e2) -> (expr_to_str e1) ^ "::" ^ (expr_to_str e2)
+  | Hd e1 -> "hd " ^ (expr_to_str e1)
+  | Tl e1 -> "tl " ^ (expr_to_str e1)
+  | MatchL(e1, e2, e3, e4, e5) -> " Se " ^ (expr_to_str e1) ^ "for [], evolui para " ^
+                                  (expr_to_str e2) ^ ", já se for " ^ (e4) ^
+                                  " :: " ^ (e5) ^ " evolui para " ^ 
+                                  (expr_to_str e3)
+  | Just e1 -> "Just" ^ (expr_to_str e1)
+  | Nothing e1 -> " Nothing "
+  | MatchJ (e1, e2, e3, e4) -> " Se " ^ (expr_to_str e1) ^ "for Nothing, evolui para" ^
+                               (expr_to_str e2) ^ ", já se for Some" ^ (e4) ^
+                               " evolui para " ^ (expr_to_str e3)  
+
+let rec renv_to_str env =
+  let pair_to_string (key, value) = key ^ ": " ^ (value_to_str value) in
+  let env_strings = List.map pair_to_string env in
+  "[" ^ (String.concat "; " env_strings) ^ "]" 
+and value_to_str valor =
+  (match valor with
+     VN v1 -> string_of_int v1
+   | VB v1 -> string_of_bool v1
+   | VPair (v1, v2) -> " Pair: " ^ (value_to_str v1) ^ " e " ^ (value_to_str v2)
+   | VClos  (v1, e2, v3) -> " Closure composto por: Ident: " ^ (v1) ^ " Expressão ( " ^ 
+                            (expr_to_str e2) ^ " ) e Ambiente " ^ (renv_to_str v3)
+   | VRclos (v1, v2, v3, v4) -> " Closure recursivo composto por: Função recursiva: " ^
+                                (v1) ^ ", Argumento: " ^ (v2) ^ ", Expressão ( " ^
+                                (expr_to_str v3) ^ " ) e Ambiente: " ^ (renv_to_str v4)
+   | VList lst -> "[" ^ (String.concat "; " (List.map value_to_str lst)) ^ "]"
+   | VOption None -> "None"
+   | VOption (Some v) -> "Some (" ^ (value_to_str v) ^ ")"
   ) 
   
 let interpretador (a: typeEnv) (b:renv) (e:expr) = 
