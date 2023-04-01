@@ -33,7 +33,7 @@ type expr =
   | App     of expr  * expr
   | Fn      of ident * tipo  * expr
   | Let     of ident * tipo  * expr  * expr 
-  | LetRec  of ident * tipo  * expr * expr 
+  | LetRec  of ident * tipo * ident * expr * expr 
   | Pair    of expr  * expr
   | Fst     of expr
   | Snd     of expr 
@@ -41,10 +41,10 @@ type expr =
   | Cons    of expr * expr
   | Hd      of expr 
   | Tl      of expr 
-  | MatchL  of expr  * expr * expr * ident * ident
+  | MatchL  of expr  * expr  * ident * ident * expr
   | Just    of expr
   | Nothing of tipo
-  | MatchJ  of expr * expr * expr * ident 
+  | MatchJ  of expr * expr * ident * expr  
 
 type valor =
     VN of int
@@ -152,7 +152,7 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
       if (typeinfer a e1) = t then typeinfer (update a x t) e2
       else raise TypeError
   
-  | LetRec(f,(TyFn(t1,t2) as tf), Fn(x,tx,e1), e2) -> 
+  | LetRec(f,(TyFn(t1,t2) as tf), i, Fn(x,tx,e1), e2) -> 
       let taF = update a f tf in
       let taFX = update taF x tx in
       let te1 = typeinfer taFX e1 in 
@@ -184,13 +184,13 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
          TyList(t) -> t 
        | _ -> raise TypeError)
         
-  | MatchL(e1, e2, e3, xh, xt) -> 
+  | MatchL(e1, e2, x, xs, e3) -> 
       let t1 = typeinfer a e1 in
       let t2 = typeinfer a e2 in 
       (match t1 with
          TyList(t) -> (
-           let up2 = update a xh t in
-           let up1 = update up2 xt t1 in
+           let up2 = update a x t in
+           let up1 = update up2 xs t1 in
            let t3 = typeinfer up1 e3 in
            if t2 = t3 then 
              t2 
@@ -205,7 +205,7 @@ let rec typeinfer (a: typeEnv) (e: expr): tipo =
   | Nothing (t) ->
       TyMaybe(t)
         
-  | MatchJ (e1, e2, e3, x) ->
+  | MatchJ (e1, e2, x, e3) ->
       let t1 = typeinfer a e1 in
       let t2 = typeinfer a e2 in 
       (match t1 with 
@@ -278,7 +278,7 @@ let rec eval (a:renv) (e:expr) : context =
       let (v1) = eval a e1 
       in eval (update a x v1) e2 
         
-  | LetRec (f,TyFn(t1,t2),Fn(x,tx,e1), e2) when t1 = tx ->
+  | LetRec (f,TyFn(t1,t2), i,Fn(x,tx,e1), e2) when t1 = tx ->
       let a' = update a f (VRclos(f,x,e1,a))
       in eval a' e2
         
@@ -318,7 +318,7 @@ let rec eval (a:renv) (e:expr) : context =
        | VList (_ :: t) -> VList t
        | _ -> raise (NImpError "bug parser"))
         
-  | MatchL (e1, e2, e3, x, xs) ->
+  | MatchL (e1, e2, x, xs, e3) ->
       (match eval a e1 with
        | VList [] -> eval a e2
        | VList (x :: xs) -> eval a e3 
@@ -328,7 +328,7 @@ let rec eval (a:renv) (e:expr) : context =
         
   | Nothing e -> VOption None
         
-  | MatchJ (e1, e2, e3, x)  ->
+  | MatchJ (e1, e2, x, e3)  ->
       (match eval a e1 with
        | VOption None -> eval a e2
        | VOption Some x -> eval a e3
@@ -374,7 +374,7 @@ let rec expr_to_str (e:expr) : string = match e with
   | Fn(e1, e2, e3) -> " Função de nome: " ^ (e1) ^ " função: " ^
                       (expr_to_str e3) 
   | Let (e1, e2, e3, e4) -> "(let " ^ e1 ^ "=" ^ (expr_to_str e3) ^ "\nin " ^ (expr_to_str e4) ^ " )"
-  | LetRec (e1, e2, e3, e4) ->  "(let rec" ^ e1 ^ "= fn => " ^ (expr_to_str e3) ^ "\nin " ^ (expr_to_str e4) ^ " )"
+  | LetRec (e1, e2, i, e3, e4) ->  "(let rec" ^ e1 ^ "= fn => " ^ (expr_to_str e3) ^ "\nin " ^ (expr_to_str e4) ^ " )"
   | Pair (e1, e2) -> "(" ^ (expr_to_str e1) ^ "," ^ (expr_to_str e2) ^ ")" 
   | Fst e1 -> "fst " ^ (expr_to_str e1)
   | Snd e1 -> "snd " ^ (expr_to_str e1)
@@ -383,14 +383,14 @@ let rec expr_to_str (e:expr) : string = match e with
   | Hd e1 -> "hd " ^ (expr_to_str e1)
   | Tl e1 -> "tl " ^ (expr_to_str e1)
   | MatchL(e1, e2, e3, e4, e5) -> " Se " ^ (expr_to_str e1) ^ "for [], evolui para " ^
-                                  (expr_to_str e2) ^ ", já se for " ^ (e4) ^
-                                  " :: " ^ (e5) ^ " evolui para " ^ 
-                                  (expr_to_str e3)
+                                  (expr_to_str e2) ^ ", já se for " ^ (e3) ^
+                                  " :: " ^ (e4) ^ " evolui para " ^ 
+                                  (expr_to_str e5)
   | Just e1 -> "Just" ^ (expr_to_str e1)
   | Nothing e1 -> " Nothing "
   | MatchJ (e1, e2, e3, e4) -> " Se " ^ (expr_to_str e1) ^ "for Nothing, evolui para" ^
-                               (expr_to_str e2) ^ ", já se for Some" ^ (e4) ^
-                               " evolui para " ^ (expr_to_str e3)  
+                               (expr_to_str e2) ^ ", já se for Some" ^ (e3) ^
+                               " evolui para " ^ (expr_to_str e4)  
 
 let rec renv_to_str env =
   let pair_to_string (key, value) = key ^ ": " ^ (value_to_str value) in
@@ -470,7 +470,33 @@ in lookup [(1,10),(2,20), (3,30)]  2
 valor - Just 20
 tipo - maybe int
 *)
-
+let tst8 =
+  LetRec
+    ( "lookup",
+      TyFn(TyList(TyPair(TyInt, TyInt)), TyFn(TyInt,TyMaybe(TyInt))),
+      "l",
+      Fn
+        ( "key",
+          TyInt,
+          MatchL
+            (Var "l",
+             Nothing(TyInt),
+             "x",
+             "xs",
+             If
+               ( OpBi (Eq, Fst (Var "x"), Var "key"),
+                 Just (Snd (Var "x")),
+                 App (App (Var "lookup", Var "xs"), Var "key") ) ) ),
+      App
+        ( App
+            ( Var "lookup",
+              Cons
+                ( Pair (Num 1, Num 10),
+                  Cons
+                    ( Pair (Num 2, Num 20),
+                      Cons (Pair(Num 3, Num 30), Nil(TyPair(TyInt, TyInt)))
+                    ) ) ),
+          Num 2 ) )
 
 (*
    
